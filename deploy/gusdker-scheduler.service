@@ -1,0 +1,21 @@
+[Unit]
+Description=gusdker shopify automation scheduler
+After=network-online.target sglang.service
+Wants=network-online.target
+# SGLang 이 같이 등록되어 있으면 먼저 뜨도록 (Wants 는 strict 가 아니라 best-effort)
+Wants=sglang.service
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__PROJECT_DIR__
+EnvironmentFile=__PROJECT_DIR__/.env
+ExecStart=/usr/bin/env pnpm scheduler
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:__PROJECT_DIR__/logs/scheduler.log
+StandardError=append:__PROJECT_DIR__/logs/scheduler.err
+
+[Install]
+WantedBy=multi-user.target

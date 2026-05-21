@@ -1,0 +1,25 @@
+[Unit]
+Description=SGLang inference server (gusdker AI backend)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+Group=__USER__
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=/usr/bin/env bash __PROJECT_DIR__/deploy/sglang-launch.sh
+Restart=on-failure
+RestartSec=15
+# 모델 로딩에 시간이 오래 걸려도 OK
+TimeoutStartSec=600
+KillSignal=SIGINT
+TimeoutStopSec=60
+StandardOutput=append:__PROJECT_DIR__/logs/sglang.log
+StandardError=append:__PROJECT_DIR__/logs/sglang.err
+LimitNOFILE=65536
+# CUDA 캐시 디렉토리 (옵션)
+Environment="HF_HOME=__HOME__/.cache/huggingface"
+
+[Install]
+WantedBy=multi-user.target

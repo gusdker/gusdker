@@ -84,7 +84,7 @@ AI_API_KEY=not-needed    # SGLang은 보통 인증 없음
 
 ## 자동 실행 (스케줄러)
 
-### 방법 1: 그냥 실행 (개발 / 테스트)
+### 개발 / 테스트
 
 ```bash
 pnpm scheduler
@@ -92,42 +92,15 @@ pnpm scheduler
 
 각 모듈이 등록한 cron 잡들이 자동 실행된다 (예: 매주 월요일 09:00에 주간 리포트).
 
-### 방법 2: systemd 유닛 (운영 권장, Ubuntu)
+### 운영 — SGLang + scheduler 를 systemd 로 한 번에
 
-DGX Spark가 상시 가동 워크스테이션이므로 systemd로 등록하면 부팅 시 자동 시작 + 크래시 시 자동 재시작.
+DGX Spark는 상시 가동 워크스테이션이므로 `deploy/` 의 셋업 스크립트로 SGLang 설치 + 두 서비스 등록을 일괄 진행 권장:
 
-`/etc/systemd/system/gusdker-scheduler.service`:
-
-```ini
-[Unit]
-Description=gusdker shopify automation scheduler
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=YOUR_USERNAME
-WorkingDirectory=/home/YOUR_USERNAME/gusdker
-EnvironmentFile=/home/YOUR_USERNAME/gusdker/.env
-ExecStart=/usr/bin/pnpm scheduler
-Restart=on-failure
-RestartSec=10
-StandardOutput=append:/home/YOUR_USERNAME/gusdker/logs/scheduler.log
-StandardError=append:/home/YOUR_USERNAME/gusdker/logs/scheduler.err
-
-[Install]
-WantedBy=multi-user.target
-```
-
-등록:
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now gusdker-scheduler
-sudo systemctl status gusdker-scheduler
-journalctl -u gusdker-scheduler -f   # 실시간 로그
+./deploy/install.sh
 ```
 
-SGLang도 같은 방식으로 `/etc/systemd/system/sglang.service` 만들어 자동 시작 권장.
+부팅 시 자동 시작 + 크래시 시 자동 재시작 + 로그 분리 모두 적용됨. 상세는 [`deploy/README.md`](./deploy/README.md) 참고.
 
 ## 모듈 추가하기
 
