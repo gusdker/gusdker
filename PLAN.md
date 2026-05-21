@@ -5,8 +5,26 @@
 운영 중인 쇼피파이 스토어를 위한 통합 자동화 도구. 트렌드 분석부터 상품 업로드, 주문 처리, 마케팅까지 한 곳에서 관리한다.
 
 - **언어**: Node.js + TypeScript
-- **실행 환경**: 로컬 (필요 시 클라우드 이전 가능)
+- **실행 환경**: 로컬 워크스테이션 상시 가동 (DGX Spark)
 - **스토어**: 기존 운영 중인 쇼피파이 스토어 1개
+
+### 1.1 하드웨어 / OS
+
+| 항목 | 값 |
+| --- | --- |
+| 머신 | **NVIDIA DGX Spark** |
+| 칩 | GB10 Grace Blackwell Superchip (ARM Neoverse + Blackwell GPU) |
+| 통합 메모리 | 128GB LPDDR5x (CPU/GPU 공유) |
+| 스토리지 | NVMe SSD |
+| 아키텍처 | **aarch64 (ARM64)** |
+| OS | **Ubuntu** (DGX OS) |
+| GPU 가속 | CUDA / cuDNN 사전 설치 |
+
+> **시사점**:
+> - 128GB 통합 메모리 → Gemma 3 27B는 FP16에서도 여유, FP8/FP4로는 70B급도 가능
+> - aarch64 — 모든 의존성이 ARM64 prebuilt 제공 확인 필요 (better-sqlite3, sharp ✓)
+> - 상시 가동 가능한 데스크탑이므로 cron / systemd timer 모두 안정적으로 사용 가능
+> - 별도 클라우드 VPS 불필요
 
 ## 2. 핵심 모듈
 
@@ -220,7 +238,9 @@ ANTHROPIC_API_KEY=sk-ant-xxxxx
 - **백업**: 일괄 업데이트 전 반드시 dry-run 모드 지원
 - **민감 정보**: `.env`, `data/cache.db`, `logs/` 모두 gitignore
 - **테스트**: 운영 스토어에 바로 쓰지 말고, 개발 스토어 따로 만들어서 검증 권장 (개발자 파트너 계정으로 무료 생성 가능)
-- **로컬 실행 한계**: PC 꺼지면 cron 안 돌아감 → 나중에 라즈베리파이/소형 VPS로 이전 고려
+- **상시 운영**: DGX Spark가 상시 켜져 있는 워크스테이션이므로 `systemd` 유닛으로 스케줄러를 등록해 부팅 시 자동 시작 / 크래시 시 자동 재시작을 권장 (Ubuntu 표준 방식)
+- **ARM64 호환성**: aarch64 환경에서 일부 npm 패키지가 native binding을 빌드해야 할 수 있음 → `pnpm.onlyBuiltDependencies` 에 명시 (better-sqlite3, sharp 등)
+- **GPU 활용**: AI 인사이트는 로컬 SGLang(CUDA 가속)으로 처리하므로 외부 API 요금 / 토큰 한도 걱정 없음. 향후 이미지 처리 / 임베딩도 로컬 GPU로 확장 가능
 
 ## 8. 다음 단계
 
