@@ -1,18 +1,20 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { loadConfig } from './config.js';
+import { request as undiciRequest } from 'undici';
+import { loadConfig, type AiConfig } from './config.js';
+import { getLogger } from './logger.js';
+
+const log = getLogger('ai');
 
 export interface AiClient {
-  /** 짧은 텍스트 생성 (시스템 + 사용자 메시지) */
-  complete(opts: {
-    system?: string;
-    user: string;
-    maxTokens?: number;
-  }): Promise<string>;
-  /** 원본 SDK 접근 (고급 사용) */
-  raw(): Anthropic;
+  /** 시스템 + 사용자 메시지로 텍스트 생성 */
+  complete(opts: { system?: string; user: string; maxTokens?: number }): Promise<string>;
+  /** 공급자 식별자 (디버깅용) */
+  readonly provider: string;
 }
 
-class AnthropicClient implements AiClient {
+/** Anthropic Claude */
+class AnthropicAiClient implements AiClient {
+  readonly provider = 'anthropic';
   private readonly sdk: Anthropic;
   private readonly model: string;
 
@@ -28,15 +30,81 @@ class AnthropicClient implements AiClient {
       system: opts.system,
       messages: [{ role: 'user', content: opts.user }],
     });
-    const text = res.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+    return res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map((b) => b.text)
       .join('\n');
-    return text;
+  }
+}
+
+/** OpenAI-compatible: Ollama / LM Studio / SGLang / vLLM 등 */
+class OpenAiCompatClient implements AiClient {
+  readonly provider = 'openai-compat';
+  private readonly baseUrl: string;
+  private readonly model: string;
+  private readonly apiKey: string;
+
+  constructor(baseUrl: string, model: string, apiKey: string) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.model = model;
+    this.apiKey = apiKey;
   }
 
-  raw() {
-    return this.sdk;
+  async complete(opts: { system?: string; user: string; maxTokens?: number }): Promise<string> {
+    const url = `${this.baseUrl}/chat/completions`;
+    const messages: Array<{ role: string; content: string }> = [];
+    if (opts.system) messages.push({ role: 'system', content: opts.system });
+    messages.push({ role: 'user', content: opts.user });
+
+    const res = await undiciRequest(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        max_tokens: opts.maxTokens ?? 2048,
+        temperature: 0.7,
+      }),
+    });
+    if (res.statusCode >= 400) {
+      const text = await res.body.text();
+      throw new Error(`AI server error ${res.statusCode}: ${text}`);
+    }
+    const body = (await res.body.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = body.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('AI server returned no content');
+    }
+    return content;
+  }
+}
+
+/** AI가 설정되지 않은 경우 — 호출하면 명확히 실패 */
+class NoneAiClient implements AiClient {
+  readonly provider = 'none';
+  async complete(): Promise<string> {
+    throw new Error(
+      'AI provider not configured. Set AI_PROVIDER=openai-compat with AI_BASE_URL/AI_MODEL, or AI_PROVIDER=anthropic with ANTHROPIC_API_KEY.',
+    );
+  }
+}
+
+function build(aiConfig: AiConfig): AiClient {
+  switch (aiConfig.provider) {
+    case 'anthropic':
+      log.debug({ model: aiConfig.model }, 'ai: anthropic');
+      return new AnthropicAiClient(aiConfig.apiKey, aiConfig.model);
+    case 'openai-compat':
+      log.debug({ baseUrl: aiConfig.baseUrl, model: aiConfig.model }, 'ai: openai-compat');
+      return new OpenAiCompatClient(aiConfig.baseUrl, aiConfig.model, aiConfig.apiKey);
+    case 'none':
+      log.warn('ai: not configured (provider=none)');
+      return new NoneAiClient();
   }
 }
 
@@ -44,7 +112,6 @@ let cached: AiClient | null = null;
 
 export function getAiClient(): AiClient {
   if (cached) return cached;
-  const cfg = loadConfig();
-  cached = new AnthropicClient(cfg.anthropic.apiKey, cfg.anthropic.model);
+  cached = build(loadConfig().ai);
   return cached;
 }

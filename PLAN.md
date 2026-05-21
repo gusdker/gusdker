@@ -61,19 +61,20 @@
 ## 3. 기술 스택
 
 ```
-런타임      : Node.js 20+
-언어        : TypeScript 5+
-패키지 매니저: pnpm (또는 npm)
+런타임       : Node.js 20+
+언어         : TypeScript 5+
+패키지 매니저 : pnpm (또는 npm)
 Shopify SDK : @shopify/shopify-api (GraphQL Admin API 기준)
 스케줄러    : node-cron
 DB          : better-sqlite3 (로컬 캐시/이력)
-HTTP        : axios / undici
+HTTP        : undici
 이미지      : sharp
-AI          : @anthropic-ai/sdk (Claude)
+AI          : 공급자 무관 어댑터 — Anthropic SDK 또는 OpenAI 호환 API
+              (SGLang / Ollama / LM Studio / vLLM 모두 같은 인터페이스)
 로깅        : pino
 검증        : zod
 환경변수    : dotenv
-CLI         : commander + inquirer (수동 실행용)
+CLI         : commander
 테스트      : vitest
 ```
 

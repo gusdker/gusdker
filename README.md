@@ -24,6 +24,32 @@ pnpm cli trends:report --days 7 --keywords "다이어트,홈트,에어프라이�
 pnpm cli --help
 ```
 
+## AI 공급자 (Anthropic 또는 로컬 LLM)
+
+OpenAI 호환 API를 제공하는 모든 런타임(Ollama, LM Studio, **SGLang**, vLLM 등)에 동일한 인터페이스로 연결.
+
+**SGLang 예시** (Gemma 27B/26B 등을 OpenAI 호환 서버로 띄우기):
+
+```bash
+# SGLang 서버 띄우기 (별도 터미널)
+python -m sglang.launch_server \
+  --model-path google/gemma-3-27b-it \
+  --port 30000 \
+  --served-model-name gemma
+```
+
+`.env` 설정:
+```bash
+AI_PROVIDER=openai-compat
+AI_BASE_URL=http://localhost:30000/v1
+AI_MODEL=gemma           # SGLang에 --served-model-name 으로 지정한 이름
+AI_API_KEY=not-needed    # SGLang은 보통 인증 없음
+```
+
+다른 런타임 사용 시 base URL만 바꾸면 됨:
+- Ollama: `http://localhost:11434/v1`, `AI_MODEL=gemma3:27b`
+- LM Studio: `http://localhost:1234/v1`
+
 ## 자동 실행 (스케줄러)
 
 ```bash
